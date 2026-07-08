@@ -15,6 +15,11 @@ traefik.docker.network={{ librebooking_container_labels_traefik_docker_network }
 
 {% set middlewares = [] %}
 
+{% if librebooking_container_labels_traefik_middleware_basic_auth_enabled %}
+{% set middlewares = middlewares + [librebooking_identifier + '-basic-auth'] %}
+traefik.http.middlewares.{{ librebooking_identifier }}-basic-auth.basicauth.users={{ librebooking_container_labels_traefik_middleware_basic_auth_users }}
+{% endif %}
+
 {% if librebooking_container_labels_traefik_redirect_root_to_web_enabled %}
 traefik.http.middlewares.{{ librebooking_identifier }}-redirect-root.redirectregex.regex=^(https?://[^/?#]*{{ librebooking_container_labels_traefik_path_prefix if librebooking_container_labels_traefik_path_prefix != '/' else '' }})/?$
 traefik.http.middlewares.{{ librebooking_identifier }}-redirect-root.redirectregex.replacement=${1}/Web/

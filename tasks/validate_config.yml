@@ -36,11 +36,12 @@
     - name: Fail if Traefik settings required for LibreBooking are not defined
       ansible.builtin.fail:
         msg: >-
-          You need to define a required configuration setting (`{{ item }}`).
-      when: "lookup('vars', item, default='') | string | length == 0"
+          You need to define a required configuration setting (`{{ item.name }}`).
+      when: "item.when | bool and lookup('vars', item.name, default='') | string | length == 0"
       with_items:
-        - librebooking_container_labels_traefik_hostname
-        - librebooking_container_labels_traefik_path_prefix
+        - { "name": "librebooking_container_labels_traefik_hostname", when: true }
+        - { "name": "librebooking_container_labels_traefik_path_prefix", when: true }
+        - { "name": "librebooking_container_labels_traefik_middleware_basic_auth_users", when: "{{ librebooking_container_labels_traefik_middleware_basic_auth_enabled }}" }
 
     - name: Fail if librebooking_path_prefix ends with a slash and is not /
       ansible.builtin.fail:

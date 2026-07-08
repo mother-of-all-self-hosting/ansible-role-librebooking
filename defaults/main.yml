@@ -86,6 +86,9 @@ librebooking_container_labels_traefik_priority: 0
 librebooking_container_labels_traefik_entrypoints: web-secure
 librebooking_container_labels_traefik_tls: "{{ librebooking_container_labels_traefik_entrypoints != 'web' }}"
 librebooking_container_labels_traefik_tls_certResolver: default  # noqa var-naming
+librebooking_container_labels_traefik_middleware_basic_auth_enabled: false
+# See: https://doc.traefik.io/traefik/reference/routing-configuration/http/middlewares/basicauth/
+librebooking_container_labels_traefik_middleware_basic_auth_users: ""
 
 # Controls whether Traefik should redirect bare-root requests to /Web/.
 # LibreBooking's UI lives at /Web/; Apache builds its Location header using the
