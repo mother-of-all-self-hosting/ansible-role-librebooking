@@ -1,0 +1,53 @@
+# SPDX-FileCopyrightText: 2026 Suguru Hirahara
+# SPDX-FileCopyrightText: 2026 spatterlight
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+---
+- name: Verify LibreBooking systemd service
+  hosts: all
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Wait for LibreBooking service to become active (up to 180s)
+      ansible.builtin.systemd:
+        name: librebooking.service
+      register: librebooking_service
+      until: librebooking_service.status.ActiveState == 'active'
+      retries: 36
+      delay: 5
+
+    - name: Assert LibreBooking service is active
+      ansible.builtin.assert:
+        that: librebooking_service.status.ActiveState == 'active'
+        fail_msg: "librebooking.service not active ({{ librebooking_service.status.ActiveState }})"
+        success_msg: "librebooking.service is active"
+
+    - name: Retrieve LibreBooking service log for debugging
+      when: librebooking_debug_service_enabled | bool
+      ansible.builtin.command:
+        cmd: journalctl -xeu librebooking.service
+      changed_when: false
+
+    - name: Wait for LibreBooking HTTP endpoint to respond (up to 10m)
+      ansible.builtin.uri:
+        url: "http://localhost:8080/Web/install/"
+        method: GET
+        status_code: [200, 302, 307]
+        follow_redirects: none
+      register: librebooking_endpoint
+      until: librebooking_endpoint.status in [200, 302, 307]
+      retries: 120
+      delay: 5
+
+    - name: Assert LibreBooking HTTP endpoint responds
+      ansible.builtin.assert:
+        that: librebooking_endpoint.status in [200, 302, 307]
+        fail_msg: "LibreBooking did not respond as expected ({{ librebooking_endpoint.status | default('no response') }})"
+        success_msg: "LibreBooking responded with {{ librebooking_endpoint.status }}"
+
+    - name: Show LibreBooking systemd service status summary
+      ansible.builtin.debug:
+        msg:
+          - "LibreBooking systemd: {{ librebooking_service.status.ActiveState }}"
+          - "LibreBooking HTTP: {{ librebooking_endpoint.status }}"
