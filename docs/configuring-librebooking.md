@@ -1,24 +1,41 @@
 <!--
+SPDX-FileCopyrightText: 2020 Aaron Raimist
+SPDX-FileCopyrightText: 2020 Chris van Dijk
+SPDX-FileCopyrightText: 2020 Dominik Zajac
+SPDX-FileCopyrightText: 2020 Mickaël Cornière
+SPDX-FileCopyrightText: 2020-2024 MDAD project contributors
+SPDX-FileCopyrightText: 2020-2024 Slavi Pantaleev
+SPDX-FileCopyrightText: 2022 François Darveau
+SPDX-FileCopyrightText: 2022 Julian Foad
+SPDX-FileCopyrightText: 2022 Warren Bailey
+SPDX-FileCopyrightText: 2023 Antonis Christofides
+SPDX-FileCopyrightText: 2023 Felix Stupp
+SPDX-FileCopyrightText: 2023 Pierre 'McFly' Marty
+SPDX-FileCopyrightText: 2024-2026 Suguru Hirahara
 SPDX-FileCopyrightText: 2026 shukon
 
 SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
-# Configuring LibreBooking
+# Setting up LibreBooking
+
+This is an [Ansible](https://www.ansible.com/) role which installs [LibreBooking](https://github.com/LibreBooking/librebooking) to run as a [Docker](https://www.docker.com/) container wrapped in a systemd service.
 
 LibreBooking is a resource scheduling application and a FOSS fork of Booked Scheduler.
 
-This document describes how to configure LibreBooking using this Ansible role.
+See the project's [documentation](https://librebooking.readthedocs.io/) to learn what LibreBooking does and why it might be useful to you.
 
 ## Prerequisites
 
-This service requires:
+To run a LibreBooking instance it is necessary to prepare a [MySQL](https://www.mysql.com/) compatible database server.
 
-- A **MariaDB** database. LibreBooking does **not** support PostgreSQL.
-  You can use an external MariaDB instance or the `mariadb` role of the MASH playbook.
-- A reverse proxy (Traefik is integrated by default in MASH).
+If you are looking for an Ansible role for [MariaDB](https://mariadb.org/), you can check out [this role (ansible-role-mariadb)](https://github.com/mother-of-all-self-hosting/ansible-role-mariadb) maintained by the [Mother-of-All-Self-Hosting (MASH)](https://github.com/mother-of-all-self-hosting) team.
 
-## Example configuration (`vars.yml`)
+## Adjusting the playbook configuration
+
+To enable LibreBooking with this role, add the following configuration to your `vars.yml` file.
+
+**Note**: the path should be something like `inventory/host_vars/mash.example.com/vars.yml` if you use the [MASH Ansible playbook](https://github.com/mother-of-all-self-hosting/mash-playbook).
 
 ```yaml
 ########################################################################
@@ -28,8 +45,6 @@ This service requires:
 ########################################################################
 
 librebooking_enabled: true
-
-librebooking_hostname: booking.example.com
 
 # Protects the /Web/install/ setup wizard. Use a strong password.
 librebooking_environment_variables_lb_install_password: "your-strong-install-password-here"
@@ -56,67 +71,74 @@ librebooking_environment_variables_lb_install_password: "your-strong-install-pas
 ########################################################################
 ```
 
-## First-time setup
+### Set the hostname
 
-LibreBooking does **not** initialize its database schema automatically. You must run the web-based install wizard on first install.
+To enable LibreBooking you need to set the hostname as well. To do so, add the following configuration to your `vars.yml` file. Make sure to replace `example.com` with your own value.
 
-After running the playbook for the first time, retrieve your database credentials:
-
-```bash
-ansible-playbook -i inventory/hosts setup.yml --tags=print-db-credentials-librebooking
+```yaml
+librebooking_hostname: "example.com"
 ```
 
-Then navigate to the install wizard:
+After adjusting the hostname, make sure to adjust your DNS records to point the domain to your server.
 
-```text
-https://booking.example.com/Web/install/
+**Note**: hosting LibreBooking under a subpath (by configuring the `librebooking_path_prefix` variable) does not seem to be possible due to LibreBooking's technical limitations.
+
+### Set variables for the database server
+
+To have the LibreBooking instance connect to your MySQL-compatible database server, add the following configuration to your `vars.yml` file.
+
+```yaml
+librebooking_database_hostname: YOUR_MYSQL_SERVER_HOSTNAME_HERE
+librebooking_database_username: YOUR_MYSQL_SERVER_USERNAME_HERE
+librebooking_database_password: YOUR_MYSQL_SERVER_PASSWORD_HERE
+librebooking_database_name: YOUR_MYSQL_SERVER_DATABASE_NAME_HERE
 ```
 
-You will be prompted for the **installation password** you set above. On the next page:
+### Extending the configuration
 
-- Enter the database credentials printed above as the **MySQL User** and **Password**
+There are some additional things you may wish to configure about the service.
+
+Take a look at:
+
+- [`defaults/main.yml`](../defaults/main.yml) for some variables that you can customize via your `vars.yml` file. You can override settings (even those that don't have dedicated playbook variables) using the `librebooking_environment_variables_additional_variables` variable
+
+See [the official documentation](https://librebooking.readthedocs.io/en/latest/ADVANCED-CONFIGURATION.html#environment-variable-override) for a complete list of LibreBooking's config options that you could put in `librebooking_environment_variables_additional_variables`.
+
+## Installing
+
+After configuring the playbook, run the installation command of your playbook as below:
+
+```sh
+ansible-playbook -i inventory/hosts setup.yml --tags=setup-all,start
+```
+
+If you use the MASH playbook, the shortcut commands with the [`just` program](https://github.com/mother-of-all-self-hosting/mash-playbook/blob/main/docs/just.md) are also available: `just install-all` or `just setup-all`
+
+## Usage
+
+After running the command for installation, LibreBooking becomes available at the specified hostname like `https://example.com`.
+
+To get started, open the URL `https://example.com/Web/install/` with a web browser, and follow the set up wizard.
+
+On the set up wizard,
+
+- Enter the database credentials
 - **Check "Import sample data"** — this creates the database schema and an initial `admin`/`password` account
-- Do **not** check "Create the database" or "Create the database user" — both already exist
+- Do **NOT** check "Create the database" or "Create the database user" — both already exist
 
 Once the installation is complete, keep `librebooking_environment_variables_lb_install_password` set to a strong value to prevent unauthorized access to the setup page.
 
-## Upgrading
+### Outputting database credentials
 
-To upgrade LibreBooking, update `librebooking_version` to a new version and re-run the playbook. The application will pull the new image and restart.
+On the set up wizard, it is required to input database credentials to use a MySQL compatible database. You can output its credentials by running the playbook as below:
 
-```yaml
-librebooking_version: "4.3.0"
-```
-
-After a major version upgrade, you may need to run database migrations. Navigate to:
-
-```text
-https://booking.example.com/Web/install/configure.php
-```
-
-If you need your database credentials again:
-
-```bash
+```sh
 ansible-playbook -i inventory/hosts setup.yml --tags=print-db-credentials-librebooking
 ```
 
-## Available configuration via environment variables
+### Configuring OAuth2 login (optional)
 
-LibreBooking supports overriding any config key via environment variables. The naming convention is `LB_` + the config key uppercased, with dots and dashes replaced by underscores. For example:
-
-| Config key | Environment variable |
-| --- | --- |
-| `app.title` | `LB_APP_TITLE` |
-| `phpmailer.smtp.host` | `LB_PHPMAILER_SMTP_HOST` |
-| `authentication.oauth2.client.id` | `LB_AUTHENTICATION_OAUTH2_CLIENT_ID` |
-
-See the [upstream docs](https://librebooking.readthedocs.io/en/latest/ADVANCED-CONFIGURATION.html#environment-variable-override) for the full reference.
-
-Pass extra variables using `librebooking_environment_variables_additional_variables`.
-
-## OAuth2 / SSO
-
-LibreBooking supports OAuth2 authentication with any compliant IdP (e.g. Authentik, Keycloak). See the [upstream OAuth2 docs](https://librebooking.readthedocs.io/en/stable/Oauth2-Configuration.html) for the full list of settings.
+LibreBooking supports OAuth2 authentication with any compliant IdP (e.g. authentik, Keycloak). See the [upstream OAuth2 docs](https://librebooking.readthedocs.io/en/stable/Oauth2-Configuration.html) for the full list of settings.
 
 **IdP setup:** create a confidential client and configure the redirect URI to:
 
@@ -149,3 +171,25 @@ Some IdPs require a trailing slash on the authorize URL — by default LibreBook
 ```yaml
   LB_AUTHENTICATION_OAUTH2_STRIP_TRAILING_SLASH=false
 ```
+
+## Maintenance
+
+### Upgrading LibreBooking
+
+After a major version upgrade, you may need to run database migrations. Navigate to:
+
+```text
+https://booking.example.com/Web/install/configure.php
+```
+
+If you need your database credentials, you can output its credentials by running the playbook as below:
+
+```bash
+ansible-playbook -i inventory/hosts setup.yml --tags=print-db-credentials-librebooking
+```
+
+## Troubleshooting
+
+### Check the service's logs
+
+You can find the logs in [systemd-journald](https://www.freedesktop.org/software/systemd/man/systemd-journald.service.html) by logging in to the server with SSH and running `journalctl -fu librebooking` (or how you/your playbook named the service, e.g. `mash-librebooking`).
