@@ -11,7 +11,7 @@
 ---
 # Project source code URL: https://github.com/LibreBooking/librebooking
 
-librebooking_enabled: false
+librebooking_enabled: true
 
 librebooking_identifier: librebooking
 librebooking_base_path: "/{{ librebooking_identifier }}"
