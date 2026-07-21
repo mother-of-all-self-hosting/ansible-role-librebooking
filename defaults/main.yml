@@ -22,8 +22,8 @@ librebooking_uploads_reservation_path: "{{ librebooking_base_path }}/uploads/res
 # renovate: datasource=docker depName=librebooking/librebooking
 librebooking_version: 4.2.0
 
-librebooking_uid: ""
-librebooking_gid: ""
+librebooking_uid: www-data
+librebooking_gid: www-data
 
 # The scheme used for serving LibreBooking.
 librebooking_scheme: https
