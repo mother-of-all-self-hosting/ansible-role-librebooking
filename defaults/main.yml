@@ -20,7 +20,7 @@ librebooking_uploads_images_path: "{{ librebooking_base_path }}/uploads/images"
 librebooking_uploads_reservation_path: "{{ librebooking_base_path }}/uploads/reservation"
 
 # renovate: datasource=docker depName=librebooking/librebooking
-librebooking_version: 4.2.0
+librebooking_version: 4.3.0
 
 librebooking_uid: www-data
 librebooking_gid: www-data
