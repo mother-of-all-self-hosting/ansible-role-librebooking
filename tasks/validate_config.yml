@@ -16,6 +16,7 @@
   with_items:
     - { "old": "librebooking_container_image_force_pull", "new": "<removed> (the new community.docker.docker_image_pull module handles this natively)" }
     - { "old": "librebooking_environment_variables_install_password", "new": "librebooking_environment_variables_lb_install_password" }
+    - { "old": "librebooking_environment_variables_lb_cron_enabled", "new": "<removed> (LB_CRON_ENABLED is not a LibreBooking config key and was never read by anything; background jobs need a separate container running supercronic - see docs/configuring-librebooking.md)" }
 
 - name: Fail if required LibreBooking settings not defined
   ansible.builtin.fail:

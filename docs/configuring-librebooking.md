@@ -52,9 +52,6 @@ librebooking_environment_variables_lb_install_password: "your-strong-install-pas
 # Optional: set the timezone
 # librebooking_environment_variables_lb_default_timezone: "Europe/Berlin"
 
-# Optional: enable background cron jobs (for reminder emails, etc.)
-# librebooking_environment_variables_lb_cron_enabled: true
-
 # Optional: allow users to self-register accounts (disabled by default).
 # Enable temporarily if you need to register your admin account manually.
 # librebooking_environment_variables_lb_registration_allow_self_registration: true
@@ -171,6 +168,14 @@ Some IdPs require a trailing slash on the authorize URL — by default LibreBook
 ```yaml
   LB_AUTHENTICATION_OAUTH2_STRIP_TRAILING_SLASH=false
 ```
+
+### Background jobs (reminder emails, etc.)
+
+This role does not run LibreBooking's background jobs, and LibreBooking has no built-in scheduler that could be switched on with a setting — upstream's container recipe runs the jobs from a *second* container which invokes [`supercronic`](https://github.com/aptible/supercronic) against a crontab file (see the [`.examples/` directory of the `librebooking/docker` repository](https://github.com/librebooking/docker/tree/main/.examples)).
+
+Without such a container, everything that LibreBooking schedules — reservation reminder emails, e-mail notifications for pending approvals, and the data-retention cleanup — simply never runs. Everything an operator does interactively works normally.
+
+If you need the jobs, run the second container yourself against the same database.
 
 ## Maintenance
 

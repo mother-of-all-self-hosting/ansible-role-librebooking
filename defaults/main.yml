@@ -247,9 +247,6 @@ librebooking_environment_variables_lb_logging_level: none
 
 librebooking_environment_variables_lb_logging_sql: false
 
-# Control if built-in cron is enabled for background jobs (reminder emails, etc.)
-librebooking_environment_variables_lb_cron_enabled: false
-
 # Control if it is allowed for users to self-register accounts.
 # You may wish to allow it temporarily to register your admin account if you did not import sample data during the first installation
 librebooking_environment_variables_lb_registration_allow_self_registration: false
