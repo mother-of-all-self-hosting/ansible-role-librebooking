@@ -1,0 +1,89 @@
+# SPDX-FileCopyrightText: 2026 Slavi Pantaleev
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+---
+# LibreBooking ships no unattended installer and neither the role nor the container
+# image runs one: a freshly deployed instance answers HTTP on `/Web/install/` with a
+# 200 even when the database server is stopped entirely, while every real page of the
+# application returns a 500 because there are no tables. Creating the schema is left
+# to the operator, who is expected to fill in a form, so the scenario has to do it
+# here before anything can be verified.
+#
+# Doing it in `side_effect` rather than in `converge` is deliberate: molecule picks
+# `side_effect.yml` up automatically, and if it were ever skipped the verifier's
+# assertions would fail loudly rather than quietly passing against an instance that
+# was never installed.
+#
+# The wizard is two POSTs against `/Web/install/index.php`, sharing one PHP session:
+#
+#   1. `install_password` - checked against `install.password`, i.e. against
+#      `librebooking_environment_variables_lb_install_password`. Getting it wrong
+#      re-renders the password prompt with a 200, so the next step is what detects it.
+#   2. `run_install` - runs `database_schema/create-schema.sql` and the upgrade scripts
+#      as the database user given in `install_db_user`/`install_db_password`.
+#      `create_database` and `create_user` are deliberately absent: the MariaDB role
+#      has already created both, and LibreBooking's database user has no privileges to
+#      create either.
+- name: Install LibreBooking for Molecule tests
+  hosts: all
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Wait for LibreBooking to serve its setup wizard (up to 10m)
+      ansible.builtin.uri:
+        url: "{{ librebooking_molecule_base_url }}/install/"
+        method: GET
+        status_code: [200]
+        follow_redirects: none
+      register: librebooking_installer_page
+      until: librebooking_installer_page.status == 200
+      retries: 120
+      delay: 5
+
+    - name: Authenticate against the LibreBooking setup wizard
+      ansible.builtin.uri:
+        url: "{{ librebooking_molecule_base_url }}/install/index.php"
+        method: POST
+        body_format: form-urlencoded
+        body:
+          install_password: "{{ librebooking_environment_variables_lb_install_password }}"
+        status_code: [200]
+        follow_redirects: none
+        return_content: true
+      register: librebooking_installer_authentication
+
+    - name: Assert the LibreBooking setup wizard accepted the role's install password
+      ansible.builtin.assert:
+        that:
+          - "'Please provide your installation password' not in librebooking_installer_authentication.content"
+          - "'install_db_user' in librebooking_installer_authentication.content"
+        fail_msg: >-
+          The LibreBooking setup wizard did not accept
+          `librebooking_environment_variables_lb_install_password`, so LB_INSTALL_PASSWORD
+          did not reach the application
+        success_msg: "The LibreBooking setup wizard accepted the role's install password"
+
+    - name: Ensure the LibreBooking database schema is created
+      ansible.builtin.uri:
+        url: "{{ librebooking_molecule_base_url }}/install/index.php"
+        method: POST
+        body_format: form-urlencoded
+        body:
+          run_install: "1"
+          install_db_user: "{{ librebooking_database_username }}"
+          install_db_password: "{{ librebooking_database_password }}"
+          create_sample_data: "1"
+        status_code: [200]
+        follow_redirects: none
+        return_content: true
+      register: librebooking_installation
+      changed_when: "'Installation completed successfully' in librebooking_installation.content"
+
+    # A failing statement leaves the surrounding page intact and merely marks the
+    # individual step as failed, so the success banner is what has to be named.
+    - name: Assert LibreBooking reported a successful installation
+      ansible.builtin.assert:
+        that: "'Installation completed successfully' in librebooking_installation.content"
+        fail_msg: "LibreBooking did not complete its installation"
+        success_msg: "LibreBooking created its database schema"

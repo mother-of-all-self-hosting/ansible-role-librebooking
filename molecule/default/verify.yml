@@ -1,14 +1,43 @@
+# SPDX-FileCopyrightText: 2026 Slavi Pantaleev
 # SPDX-FileCopyrightText: 2026 spatterlight
 # SPDX-FileCopyrightText: 2026 Suguru Hirahara
 #
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 ---
-- name: Verify LibreBooking systemd service
+- name: Verify LibreBooking
   hosts: all
   become: true
   gather_facts: false
+
+  vars:
+    # Names that LibreBooking's sample data does not contain. The sample data seeds
+    # `Conference Room 1` and `Conference Room 2` and no reservations at all, so a probe
+    # reusing those names could be satisfied by data the role had nothing to do with.
+    librebooking_molecule_probe_resource: MASH Molecule probe room
+    librebooking_molecule_probe_title: MASH Molecule probe reservation
+    # The offset is the one this scenario's `librebooking_environment_variables_lb_default_timezone`
+    # carries (Pacific/Kiritimati, UTC+14 year round): LibreBooking only accepts times
+    # that line up with the reservation slots of the schedule layout, and the layout is
+    # laid out in that timezone. LibreBooking stores UTC, so the rows below are the
+    # requested times minus fourteen hours.
+    librebooking_molecule_probe_start: "2030-01-15T09:00:00+1400"
+    librebooking_molecule_probe_end: "2030-01-15T10:00:00+1400"
+    librebooking_molecule_probe_start_utc: "2030-01-14 19:00:00"
+    librebooking_molecule_probe_end_utc: "2030-01-14 20:00:00"
+    # Created by the wizard's "import sample data" step, which `side_effect.yml` runs.
+    librebooking_molecule_admin_username: admin
+    librebooking_molecule_admin_password: password
+
   tasks:
+    # `librebooking_version` is a leaf literal, so reading it back out of the role's own
+    # defaults is safe. Scenario-tuned values are never read from here - those come from
+    # this scenario's group_vars, which this file would otherwise outrank.
+    - name: Read the version the role pins
+      ansible.builtin.include_vars:
+        file: "{{ lookup('env', 'MOLECULE_PROJECT_DIRECTORY') }}/defaults/main.yml"
+        name: librebooking_molecule_role_defaults
+
     - name: Wait for LibreBooking service to become active (up to 180s)
       ansible.builtin.systemd:
         name: librebooking.service
@@ -17,6 +46,9 @@
       retries: 36
       delay: 5
 
+    # The unit is `Restart=always`, which makes a crash-looping container look active,
+    # so this is a readiness gate rather than evidence of anything. Everything below is
+    # what actually decides whether the role works.
     - name: Assert LibreBooking service is active
       ansible.builtin.assert:
         that: librebooking_service.status.ActiveState == 'active'
@@ -29,25 +61,256 @@
         cmd: journalctl -xeu librebooking.service
       changed_when: false
 
-    - name: Wait for LibreBooking HTTP endpoint to respond (up to 10m)
-      ansible.builtin.uri:
-        url: "http://localhost:8080/Web/install/"
-        method: GET
-        status_code: [200, 302, 307]
-        follow_redirects: none
-      register: librebooking_endpoint
-      until: librebooking_endpoint.status in [200, 302, 307]
-      retries: 120
-      delay: 5
+    - name: Inspect the running LibreBooking container
+      ansible.builtin.command:
+        argv:
+          - docker
+          - inspect
+          - librebooking
+      register: librebooking_container_inspect
+      changed_when: false
 
-    - name: Assert LibreBooking HTTP endpoint responds
+    # This is what earns a Renovate bump any confidence at all: the thing that ran is
+    # the thing defaults/main.yml pins, not a `latest` that happened to be lying around.
+    - name: Assert the running container came from the image the role pins
       ansible.builtin.assert:
-        that: librebooking_endpoint.status in [200, 302, 307]
-        fail_msg: "LibreBooking did not respond as expected ({{ librebooking_endpoint.status | default('no response') }})"
-        success_msg: "LibreBooking responded with {{ librebooking_endpoint.status }}"
+        that: >-
+          (librebooking_container_inspect.stdout | from_json)[0].Config.Image
+          == 'docker.io/librebooking/librebooking:' ~ librebooking_molecule_role_defaults.librebooking_version
+        fail_msg: >-
+          Expected image docker.io/librebooking/librebooking:{{ librebooking_molecule_role_defaults.librebooking_version }},
+          got {{ (librebooking_container_inspect.stdout | from_json)[0].Config.Image }}
+        success_msg: >-
+          The container runs
+          docker.io/librebooking/librebooking:{{ librebooking_molecule_role_defaults.librebooking_version }}
 
-    - name: Show LibreBooking systemd service status summary
+    # An uninstalled LibreBooking answers `/Web/install/` with a 200 even when the
+    # database server is stopped outright, so the installer page proves nothing at all.
+    # `/Web/` is the honest probe: it is a 500 until the schema exists, because every
+    # real page of the application queries the database while rendering.
+    - name: Fetch the LibreBooking login page
+      ansible.builtin.uri:
+        url: "{{ librebooking_molecule_base_url }}/"
+        method: GET
+        status_code: [200]
+        follow_redirects: none
+        return_content: true
+      register: librebooking_login_page
+
+    - name: Assert LibreBooking is installed, configured and running the pinned version
+      ansible.builtin.assert:
+        that:
+          # Not an error page, and not the setup wizard either.
+          - "'<title>LibreBooking - Log In</title>' in librebooking_login_page.content"
+          # LibreBooking prints its own version into the footer of every page it renders.
+          - >-
+            'v' ~ librebooking_molecule_role_defaults.librebooking_version ~ '</a>'
+            in librebooking_login_page.content
+          # ... and stamps it onto every asset URL as a cache buster.
+          - >-
+            '?v=' ~ librebooking_molecule_role_defaults.librebooking_version
+            in librebooking_login_page.content
+          # LibreBooking's own default for `registration.allow.self.registration` is
+          # `true`. This role defaults it to `false` and the scenario leaves that alone,
+          # so a login page offering registration means the role's `env` file never
+          # reached the application and its built-in defaults are in charge.
+          - "'register.php' not in librebooking_login_page.content"
+        fail_msg: "The LibreBooking login page is not what the role configured"
+        success_msg: >-
+          LibreBooking {{ librebooking_molecule_role_defaults.librebooking_version }} serves a login
+          page with self-registration disabled
+
+    # `librebooking_environment_variables_lb_default_timezone` travels as
+    # LB_DEFAULT_TIMEZONE in the role's `env` file, and the installer substitutes it into
+    # the row it writes to `layouts`. Reading it back out of MariaDB proves the value
+    # crossed the whole chain - template, env file, PHP config, database - rather than
+    # merely being present in a file on disk.
+    - name: Read the timezone LibreBooking recorded in MariaDB
+      ansible.builtin.command:
+        argv:
+          - docker
+          - exec
+          - mariadb
+          - mariadb
+          - "--user=root"
+          - "--password={{ mariadb_root_password }}"
+          - "--database={{ librebooking_database_name }}"
+          - "--batch"
+          - "--skip-column-names"
+          - "--execute"
+          - SELECT timezone FROM layouts ORDER BY layout_id LIMIT 1
+      register: librebooking_database_timezone
+      changed_when: false
+
+    - name: Assert MariaDB holds the timezone the role configured
+      ansible.builtin.assert:
+        that: >-
+          librebooking_database_timezone.stdout | trim
+          == librebooking_environment_variables_lb_default_timezone
+        fail_msg: >-
+          {{ librebooking_database_name }}.layouts holds
+          '{{ librebooking_database_timezone.stdout | trim }}', while the role configured
+          '{{ librebooking_environment_variables_lb_default_timezone }}'
+        success_msg: >-
+          MariaDB holds the configured timezone
+          '{{ librebooking_environment_variables_lb_default_timezone }}'
+
+    # The web service API is off in LibreBooking's own defaults and this scenario turns
+    # it on through `librebooking_environment_variables_additional_variables`. A disabled
+    # API answers 503, so reaching an authenticated session at all is what proves the
+    # pass-through variable landed in the `env` file and was honored.
+    - name: Authenticate against the LibreBooking API
+      ansible.builtin.uri:
+        url: "{{ librebooking_molecule_base_url }}/Services/index.php/Authentication/Authenticate"
+        method: POST
+        body_format: json
+        body:
+          username: "{{ librebooking_molecule_admin_username }}"
+          password: "{{ librebooking_molecule_admin_password }}"
+        status_code: [200]
+      register: librebooking_api_authentication
+
+    - name: Assert the LibreBooking API is enabled and authenticated the administrator
+      ansible.builtin.assert:
+        that:
+          - librebooking_api_authentication.json.isAuthenticated
+          - librebooking_api_authentication.json.sessionToken | default('') | length > 0
+        fail_msg: "The LibreBooking API did not authenticate: {{ librebooking_api_authentication.json }}"
+        success_msg: "The LibreBooking API authenticated as {{ librebooking_molecule_admin_username }}"
+
+    # Negative control for the call above: without it, an API that had stopped checking
+    # credentials would look exactly as healthy.
+    - name: Probe the LibreBooking API with a wrong password
+      ansible.builtin.uri:
+        url: "{{ librebooking_molecule_base_url }}/Services/index.php/Authentication/Authenticate"
+        method: POST
+        body_format: json
+        body:
+          username: "{{ librebooking_molecule_admin_username }}"
+          password: "not-{{ librebooking_molecule_admin_password }}"
+        status_code: [200, 401]
+      register: librebooking_api_bad_password
+
+    - name: Assert the LibreBooking API rejects a wrong password
+      ansible.builtin.assert:
+        that:
+          - librebooking_api_bad_password.status == 401
+          - not librebooking_api_bad_password.json.isAuthenticated
+        fail_msg: >-
+          The LibreBooking API answered {{ librebooking_api_bad_password.status }} to a
+          wrong password
+        success_msg: "The LibreBooking API rejects a wrong password"
+
+    - name: Create a resource over the LibreBooking API
+      ansible.builtin.uri:
+        url: "{{ librebooking_molecule_base_url }}/Services/index.php/Resources/"
+        method: POST
+        headers:
+          X-Booked-SessionToken: "{{ librebooking_api_authentication.json.sessionToken }}"
+          X-Booked-UserId: "{{ librebooking_api_authentication.json.userId }}"
+        body_format: json
+        # LibreBooking 5.3.0 dereferences the four string properties below without
+        # checking whether they were supplied, so they have to be present even though
+        # they carry no meaning for this probe.
+        body:
+          name: "{{ librebooking_molecule_probe_resource }}"
+          scheduleId: 1
+          statusId: 1
+          autoAssignPermissions: true
+          allowMultiday: true
+          minNoticeAdd: ""
+          minNoticeUpdate: ""
+          minNoticeDelete: ""
+          bufferTime: ""
+        status_code: [201]
+      register: librebooking_api_resource
+
+    - name: Create a reservation over the LibreBooking API
+      ansible.builtin.uri:
+        url: "{{ librebooking_molecule_base_url }}/Services/index.php/Reservations/"
+        method: POST
+        headers:
+          X-Booked-SessionToken: "{{ librebooking_api_authentication.json.sessionToken }}"
+          X-Booked-UserId: "{{ librebooking_api_authentication.json.userId }}"
+        body_format: json
+        body:
+          resourceId: "{{ librebooking_api_resource.json.resourceId }}"
+          userId: "{{ librebooking_api_authentication.json.userId }}"
+          title: "{{ librebooking_molecule_probe_title }}"
+          description: Created by the Molecule scenario
+          startDateTime: "{{ librebooking_molecule_probe_start }}"
+          endDateTime: "{{ librebooking_molecule_probe_end }}"
+          allowParticipation: false
+          termsAccepted: true
+          accessories: []
+          customAttributes: []
+          invitees: []
+          participants: []
+          participatingGuests: []
+          invitedGuests: []
+          resources: []
+          retryParameters: []
+        status_code: [201]
+      register: librebooking_api_reservation
+
+    - name: Assert the LibreBooking API booked the resource
+      ansible.builtin.assert:
+        that:
+          - librebooking_api_reservation.json.referenceNumber | default('') | length > 0
+          - not librebooking_api_reservation.json.isPendingApproval
+        fail_msg: "The LibreBooking API did not create a reservation: {{ librebooking_api_reservation.json }}"
+        success_msg: >-
+          The LibreBooking API created reservation
+          {{ librebooking_api_reservation.json.referenceNumber }}
+
+    # Everything above would also hold for a LibreBooking talking to some other database,
+    # so the booking is read back out of MariaDB itself, under the database name this
+    # scenario configured - which is not the role's default, so a LibreBooking that
+    # ignored LB_DATABASE_NAME could not have written here.
+    - name: Read the reservation back out of MariaDB
+      ansible.builtin.command:
+        argv:
+          - docker
+          - exec
+          - mariadb
+          - mariadb
+          - "--user=root"
+          - "--password={{ mariadb_root_password }}"
+          - "--database={{ librebooking_database_name }}"
+          - "--batch"
+          - "--skip-column-names"
+          - "--execute"
+          - >-
+            SELECT CONCAT_WS('|', ri.reference_number, r.name, ri.start_date, ri.end_date)
+            FROM reservation_instances ri
+            JOIN reservation_series rs ON rs.series_id = ri.series_id
+            JOIN reservation_resources rr ON rr.series_id = rs.series_id
+            JOIN resources r ON r.resource_id = rr.resource_id
+            WHERE rs.title = '{{ librebooking_molecule_probe_title }}'
+      register: librebooking_database_reservation
+      changed_when: false
+
+    - name: Assert MariaDB holds the reservation the API created
+      ansible.builtin.assert:
+        that: >-
+          librebooking_database_reservation.stdout | trim
+          == librebooking_api_reservation.json.referenceNumber
+          ~ '|' ~ librebooking_molecule_probe_resource
+          ~ '|' ~ librebooking_molecule_probe_start_utc
+          ~ '|' ~ librebooking_molecule_probe_end_utc
+        fail_msg: >-
+          {{ librebooking_database_name }} holds
+          '{{ librebooking_database_reservation.stdout | trim }}' for
+          '{{ librebooking_molecule_probe_title }}'
+        success_msg: >-
+          MariaDB holds reservation {{ librebooking_api_reservation.json.referenceNumber }}
+          against '{{ librebooking_molecule_probe_resource }}' in
+          {{ librebooking_database_name }}
+
+    - name: Show LibreBooking verification summary
       ansible.builtin.debug:
         msg:
           - "LibreBooking systemd: {{ librebooking_service.status.ActiveState }}"
-          - "LibreBooking HTTP: {{ librebooking_endpoint.status }}"
+          - "LibreBooking version: {{ librebooking_molecule_role_defaults.librebooking_version }}"
+          - "LibreBooking timezone (recorded in MariaDB): {{ librebooking_database_timezone.stdout | trim }}"
+          - "LibreBooking reservation (recorded in MariaDB): {{ librebooking_database_reservation.stdout | trim }}"

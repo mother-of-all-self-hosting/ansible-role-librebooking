@@ -47,7 +47,9 @@ Currently there is one testing scenario available.
 
 ### `default`
 
-Tests a standard LibreBooking installation.
+Deploys LibreBooking against a MariaDB server, completes LibreBooking's setup wizard (which nothing installs on its own), and then exercises the running instance: it asserts that the container came from the image `defaults/main.yml` pins, that the login page reports that same version and has self-registration switched off (LibreBooking's own default is on), that MariaDB holds the timezone the role configured, and that a resource and a reservation created over LibreBooking's web service API can be read back out of MariaDB under the non-default database name the scenario sets.
+
+The setup wizard runs in `side_effect.yml`. Molecule picks that up automatically as part of `molecule test`; skipping it makes the verifier fail rather than pass, because an uninstalled LibreBooking answers `/Web/install/` with a 200 even when the database server is stopped outright.
 
 ## Running
 

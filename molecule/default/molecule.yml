@@ -1,3 +1,4 @@
+# SPDX-FileCopyrightText: 2026 Slavi Pantaleev
 # SPDX-FileCopyrightText: 2026 spatterlight
 # SPDX-FileCopyrightText: 2026 Suguru Hirahara
 #
@@ -31,20 +32,53 @@ provisioner:
         # Helper variables
         librebooking_debug_service_enabled: false
 
+        # Where the side effect and the verifier reach LibreBooking. The container
+        # publishes its port onto the platform container's own loopback interface, so
+        # this is reachable without crossing the Docker bridge gateway (which Docker
+        # 28+ blocks).
+        librebooking_molecule_base_url: "http://127.0.0.1:8080/Web"
+
         # Variables for LibreBooking
         librebooking_uid: www-data
         librebooking_gid: www-data
         librebooking_hostname: localhost
         librebooking_container_labels_traefik_enabled: false
         librebooking_container_http_host_bind_port: 8080
-        librebooking_environment_variables_lb_install_password: password
 
-        # Variables required for LibreBooking to connect to the MariaDB database
+        # The setup wizard refuses to run without this, and rejects anything else.
+        librebooking_environment_variables_lb_install_password: molecule-install-password
+
+        # Deliberately not UTC, not the machine's timezone and not LibreBooking's own
+        # default: the installer writes this value into the `layouts` table, so a
+        # non-obvious one is what tells "the role's `env` file reached the process"
+        # apart from "something else happened to pick a plausible timezone".
+        #
+        # UTC+14 with no daylight saving, so that the times the verifier books stay
+        # arithmetic. A timezone at a 45-minute offset (Pacific/Chatham) would put every
+        # whole hour outside LibreBooking's 30-minute reservation slots.
+        librebooking_environment_variables_lb_default_timezone: Pacific/Kiritimati
+
+        # LibreBooking's own default for `registration.allow.self.registration` is
+        # `true`, while this role defaults it to `false`. Leaving the role's default in
+        # place means the login page must NOT offer registration - which it would if
+        # the LB_ environment variables never reached the application.
+        librebooking_environment_variables_lb_registration_allow_self_registration: false
+
+        # The web service API is disabled by default and is the only way to exercise
+        # LibreBooking's actual domain objects. Setting it through the pass-through
+        # variable also proves that the pass-through works.
+        librebooking_environment_variables_additional_variables: |
+          LB_API_ENABLED=true
+
+        # Variables required for LibreBooking to connect to the MariaDB database.
+        #
+        # The database name is deliberately not the role's default, so that a
+        # LibreBooking which ignored LB_DATABASE_NAME cannot pass the checks that read
+        # rows back out of MariaDB.
         librebooking_database_hostname: "{{ mariadb_connection_hostname }}"
-        librebooking_database_port: "{{ mariadb_connection_port }}"
         librebooking_database_username: my_database_username
         librebooking_database_password: my_database_password
-        librebooking_database_name: librebooking
+        librebooking_database_name: librebooking_molecule
         librebooking_systemd_required_services_list_auto: |
           {{
             (['mariadb.service'])
