@@ -3,7 +3,7 @@ galaxy_info:
   author: shukon
   company: shukon
   role_name: librebooking
-  namespace: shukon
+  namespace: mash
   description: An Ansible role for installing LibreBooking, a resource scheduling application
   platforms:
     - name: Debian
