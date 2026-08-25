@@ -91,6 +91,14 @@ librebooking_database_password: YOUR_MYSQL_SERVER_PASSWORD_HERE
 librebooking_database_name: YOUR_MYSQL_SERVER_DATABASE_NAME_HERE
 ```
 
+There is no separate variable for the port. LibreBooking takes host and port as a single "hostspec", so a database server on a non-standard port goes into the hostname:
+
+```yaml
+librebooking_database_hostname: "db.example.com:3307"
+```
+
+⚠️ At the time of writing this works for the running application but not for the setup wizard: `Presenters/Install/Installer.php` connects without splitting the port off, while `lib/Database/MySQL/MySqlConnection.php` does. If your database server does not listen on 3306, expect to have to install against port 3306 (or a proxy on it) once, and only then switch the hostspec over.
+
 ### Extending the configuration
 
 There are some additional things you may wish to configure about the service.
