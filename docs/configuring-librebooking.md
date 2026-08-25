@@ -120,8 +120,10 @@ To get started, open the URL `https://example.com/Web/install/` with a web brows
 On the set up wizard,
 
 - Enter the database credentials
-- **Check "Import sample data"** — this creates the database schema and an initial `admin`/`password` account
+- **Check "Import sample data"** — this creates the database schema and an initial administrator account
 - Do **NOT** check "Create the database" or "Create the database user" — both already exist
+
+⚠️ The sample data seeds a working administrator account with the username `admin` and the password `password`, plus a second account `user`/`password`. They are reachable by anyone who can reach your instance. **Log in and change both passwords before you point DNS at the server**, or delete the `user` account outright.
 
 Once the installation is complete, keep `librebooking_environment_variables_lb_install_password` set to a strong value to prevent unauthorized access to the setup page.
 
