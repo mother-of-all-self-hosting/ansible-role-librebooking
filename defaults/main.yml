@@ -232,8 +232,12 @@ librebooking_database_name: librebooking
 # Specify the timezone (e.g. Europe/Berlin)
 librebooking_environment_variables_lb_default_timezone: UTC
 
-# Specify installation password used to access the /install/ setup wizard.
-librebooking_environment_variables_install_password: ""
+# Specify the installation password which protects the `/Web/install/` setup wizard.
+#
+# This is a required setting. LibreBooking refuses to show the wizard at all when
+# `install.password` is empty, and the wizard is the only way to create the database
+# schema, so an instance without this value can never be finished.
+librebooking_environment_variables_lb_install_password: ""
 
 librebooking_environment_variables_lb_logging_folder: /var/log/librebooking
 
