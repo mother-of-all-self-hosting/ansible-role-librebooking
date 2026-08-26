@@ -8,7 +8,7 @@
     "Known and deliberately accepted: the bare tag is the mutable one. Upstream's publish workflow pushes `<version>` and `<version>-<build>` together, so re-running it for a new image build revision moves `5.3.0` onto a different image while the role's pin, and Renovate, see no change at all. Pinning `5.3.0-3.4.1` instead would be immutable but untrackable, since semver reads it as a prerelease. That is a Renovate blind spot rather than an automerge risk: it exists identically whether or not patch bumps automerge."
   ],
   "extends": [
-    "github>mother-of-all-self-hosting/renovate-config#v1.0.0",
-    "github>mother-of-all-self-hosting/renovate-config//patch-automerge#v1.0.0"
+    "github>mother-of-all-self-hosting/renovate-config#v1.1.0",
+    "github>mother-of-all-self-hosting/renovate-config//patch-automerge#v1.1.0"
   ]
 }
