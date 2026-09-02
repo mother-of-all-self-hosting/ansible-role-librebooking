@@ -40,12 +40,6 @@ Refer to [this page](./molecule/README.md) for details about how to utilize it.
 
 ### Releases
 
-Releases are tagged automatically. On every push to `main`, [`bin/compute-next-tag.sh`](./bin/compute-next-tag.sh) derives the tag from the `librebooking_version` in [`defaults/main.yml`](defaults/main.yml) together with the tags that already exist, and the [autotag workflow](./.github/workflows/autotag.yml) pushes it:
+Tags are created by [`.github/workflows/autotag.yml`](.github/workflows/autotag.yml), which asks [`bin/compute-next-tag.sh`](bin/compute-next-tag.sh) what the commit on `main` should be released as. The answer comes from the LibreBooking version pinned in [`defaults/main.yml`](defaults/main.yml) and from the tags that already exist, so a commit that only touches documentation or CI is not released at all, and any change to the role itself is — without waiting for a dependency bump to carry it along.
 
-- a LibreBooking version that has never been released starts a fresh counter (`v5.3.0-0`)
-- any later change under `defaults/`, `meta/`, `tasks/` or `templates/` increments it (`v5.3.0-1`)
-- a commit that touches nothing consumers depend on (documentation, CI, Molecule) is not released at all
-
-Because the tag is derived from repository state rather than from commit messages, it does not matter in which order pull requests are merged, or how their commits happen to be worded. The commit-message approach this replaced once cut a tag named `v5-0` for a commit that had actually set `librebooking_version: 5.3.0`, because that is how Renovate had worded the pull request title.
-
-[`bin/test-compute-next-tag.sh`](./bin/test-compute-next-tag.sh) exercises this against throwaway repositories, and runs as a pre-commit hook whenever the script or `defaults/main.yml` changes.
+[`bin/test-compute-next-tag.sh`](bin/test-compute-next-tag.sh) exercises that script against throwaway repositories, and runs as a prek hook.
