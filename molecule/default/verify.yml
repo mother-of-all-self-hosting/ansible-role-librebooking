@@ -30,13 +30,13 @@
     librebooking_molecule_admin_password: password
 
   tasks:
-    # `librebooking_version` is a leaf literal, so reading it back out of the role's own
-    # defaults is safe. Scenario-tuned values are never read from here - those come from
-    # this scenario's group_vars, which this file would otherwise outrank.
-    - name: Read the version the role pins
+    # The role is not included in this playbook, so its defaults are not in
+    # scope. Reading defaults/main.yml directly ties the version assertion
+    # below.
+    - name: Load the LibreBooking role defaults
       ansible.builtin.include_vars:
         file: "{{ lookup('env', 'MOLECULE_PROJECT_DIRECTORY') }}/defaults/main.yml"
-        name: librebooking_molecule_role_defaults
+        name: librebooking_defaults
 
     - name: Wait for LibreBooking service to become active (up to 180s)
       ansible.builtin.systemd:
@@ -76,13 +76,13 @@
       ansible.builtin.assert:
         that: >-
           (librebooking_container_inspect.stdout | from_json)[0].Config.Image
-          == 'docker.io/librebooking/librebooking:' ~ librebooking_molecule_role_defaults.librebooking_version
+          == 'docker.io/librebooking/librebooking:' ~ librebooking_defaults.librebooking_version
         fail_msg: >-
-          Expected image docker.io/librebooking/librebooking:{{ librebooking_molecule_role_defaults.librebooking_version }},
+          Expected image docker.io/librebooking/librebooking:{{ librebooking_defaults.librebooking_version }},
           got {{ (librebooking_container_inspect.stdout | from_json)[0].Config.Image }}
         success_msg: >-
           The container runs
-          docker.io/librebooking/librebooking:{{ librebooking_molecule_role_defaults.librebooking_version }}
+          docker.io/librebooking/librebooking:{{ librebooking_defaults.librebooking_version }}
 
     # An uninstalled LibreBooking answers `/Web/install/` with a 200 even when the
     # database server is stopped outright, so the installer page proves nothing at all.
@@ -104,11 +104,11 @@
           - "'<title>LibreBooking - Log In</title>' in librebooking_login_page.content"
           # LibreBooking prints its own version into the footer of every page it renders.
           - >-
-            'v' ~ librebooking_molecule_role_defaults.librebooking_version ~ '</a>'
+            'v' ~ librebooking_defaults.librebooking_version ~ '</a>'
             in librebooking_login_page.content
           # ... and stamps it onto every asset URL as a cache buster.
           - >-
-            '?v=' ~ librebooking_molecule_role_defaults.librebooking_version
+            '?v=' ~ librebooking_defaults.librebooking_version
             in librebooking_login_page.content
           # LibreBooking's own default for `registration.allow.self.registration` is
           # `true`. This role defaults it to `false` and the scenario leaves that alone,
@@ -117,7 +117,7 @@
           - "'register.php' not in librebooking_login_page.content"
         fail_msg: "The LibreBooking login page is not what the role configured"
         success_msg: >-
-          LibreBooking {{ librebooking_molecule_role_defaults.librebooking_version }} serves a login
+          LibreBooking {{ librebooking_defaults.librebooking_version }} serves a login
           page with self-registration disabled
 
     # `librebooking_environment_variables_lb_default_timezone` travels as
@@ -311,6 +311,6 @@
       ansible.builtin.debug:
         msg:
           - "LibreBooking systemd: {{ librebooking_service.status.ActiveState }}"
-          - "LibreBooking version: {{ librebooking_molecule_role_defaults.librebooking_version }}"
+          - "LibreBooking version: {{ librebooking_defaults.librebooking_version }}"
           - "LibreBooking timezone (recorded in MariaDB): {{ librebooking_database_timezone.stdout | trim }}"
           - "LibreBooking reservation (recorded in MariaDB): {{ librebooking_database_reservation.stdout | trim }}"
