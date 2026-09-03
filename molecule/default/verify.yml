@@ -307,7 +307,7 @@
           against '{{ librebooking_molecule_probe_resource }}' in
           {{ librebooking_database_name }}
 
-    - name: Show LibreBooking verification summary
+    - name: Show the LibreBooking verification summary
       ansible.builtin.debug:
         msg:
           - "LibreBooking systemd: {{ librebooking_service.status.ActiveState }}"
