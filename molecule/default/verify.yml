@@ -70,8 +70,6 @@
       register: librebooking_container_inspect
       changed_when: false
 
-    # This is what earns a Renovate bump any confidence at all: the thing that ran is
-    # the thing defaults/main.yml pins, not a `latest` that happened to be lying around.
     - name: Assert the running container came from the image the role pins
       ansible.builtin.assert:
         that: >-
