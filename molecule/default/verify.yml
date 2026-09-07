@@ -67,14 +67,14 @@
           - docker
           - inspect
           - librebooking
-      register: librebooking_container_inspect
+      register: librebooking_container_raw
       changed_when: false
 
     - name: Assert the running LibreBooking is the version this role installs
       ansible.builtin.assert:
-        that: "(librebooking_container_inspect.stdout | from_json)[0].Config.Image == 'docker.io/librebooking/librebooking:' ~ librebooking_defaults.librebooking_version"
-        fail_msg: "LibreBooking reports {{ (librebooking_container_inspect.stdout | from_json)[0].Config.Image | default('none') }}, expected {{ librebooking_defaults.librebooking_version }}"
-        success_msg: "LibreBooking reports {{ (librebooking_container_inspect.stdout | from_json)[0].Config.Image }}"
+        that: "(librebooking_container_raw.stdout | from_json)[0].Config.Image == 'docker.io/librebooking/librebooking:' ~ librebooking_defaults.librebooking_version"
+        fail_msg: "LibreBooking reports {{ (librebooking_container_raw.stdout | from_json)[0].Config.Image | default('none') }}, expected {{ librebooking_defaults.librebooking_version }}"
+        success_msg: "LibreBooking reports {{ (librebooking_container_raw.stdout | from_json)[0].Config.Image }}"
 
     # An uninstalled LibreBooking answers `/Web/install/` with a 200 even when the
     # database server is stopped outright, so the installer page proves nothing at all.
