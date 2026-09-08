@@ -81,10 +81,7 @@
 
     - name: Inspect the running LibreBooking container
       ansible.builtin.command:
-        argv:
-          - docker
-          - inspect
-          - librebooking
+        cmd: docker container inspect librebooking
       register: librebooking_container_raw
       changed_when: false
 
