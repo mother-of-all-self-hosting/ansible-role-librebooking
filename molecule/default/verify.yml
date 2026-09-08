@@ -76,7 +76,7 @@
     - name: Retrieve the LibreBooking systemd service log for debugging
       when: librebooking_debug_service_enabled | bool
       ansible.builtin.command:
-        cmd: journalctl -xeu librebooking.service
+        cmd: journalctl --no-pager --output=cat --unit=librebooking.service
       changed_when: false
 
     - name: Inspect the running LibreBooking container
