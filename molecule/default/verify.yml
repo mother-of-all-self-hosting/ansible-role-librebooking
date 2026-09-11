@@ -313,7 +313,7 @@
           ansible.builtin.debug:
             msg:
               - "LibreBooking systemd: {% for unit, state in librebooking_verify_units | zip(librebooking_services.results | map(attribute='status.ActiveState')) %}{{ unit }} ({{ state }}){% if not loop.last %}, {% endif %}{% endfor %}"
-              - "LibreBooking version: {{ librebooking_defaults.librebooking_version }}"
+              - "LibreBooking version: {{ (librebooking_container_raw.stdout | from_json)[0].Config.Image }}"
               - "LibreBooking timezone (recorded in MariaDB): {{ librebooking_database_timezone.stdout | trim }}"
               - "LibreBooking reservation (recorded in MariaDB): {{ librebooking_database_reservation.stdout | trim }}"
 
