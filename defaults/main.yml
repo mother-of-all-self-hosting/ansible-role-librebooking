@@ -133,6 +133,12 @@ librebooking_container_extra_arguments: "{{ librebooking_container_extra_argumen
 librebooking_container_extra_arguments_auto: []
 librebooking_container_extra_arguments_custom: []
 
+# A list of extra arguments to pass to the process inside the container
+# Example: ['--SOME_ARGUMENT']
+librebooking_process_extra_arguments: "{{ librebooking_process_extra_arguments_auto + librebooking_process_extra_arguments_custom }}"
+librebooking_process_extra_arguments_auto: []
+librebooking_process_extra_arguments_custom: []
+
 # Specifies the value of the `X-XSS-Protection` header
 # Stops pages from loading when they detect reflected cross-site scripting (XSS) attacks.
 #
