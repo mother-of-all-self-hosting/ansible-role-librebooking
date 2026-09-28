@@ -65,7 +65,7 @@ After adjusting the hostname, make sure to adjust your DNS records to point the 
 
 **Note**: hosting LibreBooking under a subpath (by configuring the `librebooking_path_prefix` variable) does not seem to be possible due to LibreBooking's technical limitations.
 
-### Set a string for encrypting access keys
+### Set a string for protecting setup wizard
 
 You also need to specify a string used for protecting the `/Web/install/` setup wizard. To do so, add the following configuration to your `vars.yml` file. The value can be generated with `pwgen -s 64 1` or in another way.
 
