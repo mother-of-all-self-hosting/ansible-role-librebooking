@@ -46,21 +46,6 @@ To enable LibreBooking with this role, add the following configuration to your `
 
 librebooking_enabled: true
 
-# Protects the /Web/install/ setup wizard. Use a strong password.
-librebooking_environment_variables_lb_install_password: "your-strong-install-password-here"
-
-# Optional: set the timezone
-# librebooking_environment_variables_lb_default_timezone: "Europe/Berlin"
-
-# Optional: allow users to self-register accounts (disabled by default).
-# Enable temporarily if you need to register your admin account manually.
-# librebooking_environment_variables_lb_registration_allow_self_registration: true
-
-# Optional: pass extra LB_ environment variables to configure the application.
-# See: https://librebooking.readthedocs.io/en/stable/BASIC-CONFIGURATION.html
-# librebooking_environment_variables_additional_variables: |
-#   LB_APP_TITLE='My Booking System'
-
 ########################################################################
 #                                                                      #
 # /librebooking                                                        #
@@ -80,6 +65,14 @@ After adjusting the hostname, make sure to adjust your DNS records to point the 
 
 **Note**: hosting LibreBooking under a subpath (by configuring the `librebooking_path_prefix` variable) does not seem to be possible due to LibreBooking's technical limitations.
 
+### Set a string for encrypting access keys
+
+You also need to specify a string used for protecting the `/Web/install/` setup wizard. To do so, add the following configuration to your `vars.yml` file. The value can be generated with `pwgen -s 64 1` or in another way.
+
+```yaml
+librebooking_environment_variables_lb_install_password: YOUR_SECRET_HERE
+```
+
 ### Set variables for the database server
 
 To have the LibreBooking instance connect to your MySQL-compatible database server, add the following configuration to your `vars.yml` file.
@@ -98,6 +91,14 @@ librebooking_database_hostname: "db.example.com:3307"
 ```
 
 ⚠️ At the time of writing this works for the running application but not for the setup wizard: `Presenters/Install/Installer.php` connects without splitting the port off, while `lib/Database/MySQL/MySqlConnection.php` does. If your database server does not listen on 3306, expect to have to install against port 3306 (or a proxy on it) once, and only then switch the hostspec over.
+
+### Enabling account registration
+
+You can enable account self registration to create your admin account manually by adding the following configuration to your `vars.yml` file:
+
+```yaml
+librebooking_environment_variables_lb_registration_allow_self_registration: true
+```
 
 ### Extending the configuration
 
