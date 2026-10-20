@@ -20,8 +20,12 @@
 #   1. `install_password` - checked against `install.password`, i.e. against
 #      `librebooking_environment_variables_lb_install_password`. Getting it wrong
 #      re-renders the password prompt with a 200, so the next step is what detects it.
-#   2. `run_install` - runs `database_schema/create-schema.sql` and the upgrade scripts
-#      as the database user given in `install_db_user`/`install_db_password`.
+#      A correct password marks the PHP session as authenticated.
+#   2. `run_install` - only honoured for a session that passed step 1 (LibreBooking
+#      v6.1.0+ silently ignores it otherwise and re-renders the password prompt), so
+#      the session cookie from step 1 has to be sent along. It runs
+#      `database_schema/create-schema.sql` and the upgrade scripts as the database
+#      user given in `install_db_user`/`install_db_password`.
 #      `create_database` and `create_user` are deliberately absent: the MariaDB role
 #      has already created both, and LibreBooking's database user has no privileges to
 #      create either.
@@ -74,6 +78,8 @@
           install_db_user: "{{ librebooking_database_username }}"
           install_db_password: "{{ librebooking_database_password }}"
           create_sample_data: "1"
+        headers:
+          Cookie: "{{ librebooking_installer_authentication.cookies_string }}"
         status_code: [200]
         follow_redirects: none
         return_content: true
