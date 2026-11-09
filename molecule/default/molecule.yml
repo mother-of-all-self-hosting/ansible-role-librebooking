@@ -84,8 +84,8 @@ provisioner:
         # LibreBooking which ignored LB_DATABASE_NAME cannot pass the checks that read
         # rows back out of MariaDB.
         librebooking_database_hostname: "{{ mariadb_connection_hostname }}"
-        librebooking_database_username: my_database_username
-        librebooking_database_password: my_database_password
+        librebooking_database_username: /#@my_database_username?%
+        librebooking_database_password: /#@my_database_password?%
         librebooking_database_name: librebooking_molecule
         librebooking_systemd_required_services_list_auto: |
           {{
