@@ -26,8 +26,6 @@
   with_items:
     - librebooking_uid
     - librebooking_gid
-    - librebooking_hostname
-    - librebooking_container_network
     - librebooking_database_hostname
     - librebooking_database_password
     - librebooking_environment_variables_lb_install_password
